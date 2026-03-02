@@ -177,7 +177,6 @@ app.use(async (req, res) => {
 
     
     if (!resolved.projectId) {
-      trackRequest(resolved.projectId);
       return httpProxyServer.web(req, res, { target: resolved.target });
     }
 
