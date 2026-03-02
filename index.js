@@ -5,6 +5,7 @@ import compression from "compression";
 import dotenv from "dotenv";
 import { Queue } from "bullmq";
 import { redisclient, redisConnect } from "./src/configs/redis.js";
+import { RateLimiterRedis } from "rate-limiter-flexible";
 
 dotenv.config();
 await redisConnect();
@@ -43,19 +44,58 @@ function getCache(key) {
 }
 
 const staticMap = {
-  "deployhub.cloud":              "http://deployhub:80",
-  "www.deployhub.cloud":          "http://deployhub:80",
-  "cloudcoderhub.in":             "http://cloucoderhub:80",
-  "www.cloudcoderhub.in":         "http://cloucoderhub:80",
-  "console.cloudcoderhub.in":     "http://minio:9000",
-  "storage.cloudcoderhub.in":     "http://minio:9001",
-  "devload.cloudcoderhub.in":     "http://devload:80",
+  "deployhub.cloud": "http://deployhub:80",
+  "www.deployhub.cloud": "http://deployhub:80",
+  "cloudcoderhub.in": "http://cloucoderhub:80",
+  "www.cloudcoderhub.in": "http://cloucoderhub:80",
+  "console.cloudcoderhub.in": "http://minio:9000",
+  "storage.cloudcoderhub.in": "http://minio:9001",
+  "devload.cloudcoderhub.in": "http://devload:80",
   "app-devload.cloudcoderhub.in": "http://appdevload:80",
   "api-devload.cloudcoderhub.in": "http://apidevload:6700",
-  "dashboard.deployhub.cloud":    "http://appdeployhub:80",
-  "api.deployhub.cloud":          "http://apideployhub:5000",
+  "dashboard.deployhub.cloud": "http://appdeployhub:80",
+  "api.deployhub.cloud": "http://apideployhub:5000",
 };
 
+const limiters = {
+  free: new RateLimiterRedis({
+    storeClient: redisclient,
+    keyPrefix: "rl_free",
+    points: 2000,          // free plan quota
+    duration: 60 * 60 * 24 // 24h window
+  }),
+  pro: new RateLimiterRedis({
+    storeClient: redisclient,
+    keyPrefix: "rl_pro",
+    points: 100000,
+    duration: 60 * 60 * 24
+  })
+};
+
+const burstLimiters = {
+  free: new RateLimiterRedis({
+    storeClient: redisclient,
+    keyPrefix: "rl_free_burst",
+    points: 50,           // max 50 requests
+    duration: 60          // per 60 seconds
+  }),
+  pro: new RateLimiterRedis({
+    storeClient: redisclient,
+    keyPrefix: "rl_pro_burst",
+    points: 500,          // pro can burst higher
+    duration: 60
+  })
+};
+
+
+const PLAN_LIMITS = {
+  free: {
+    requests: 2000,
+  },
+  pro: {
+    requests: 100000,
+  }
+}
 function getSubdomain(domain, root) {
   if (!domain.endsWith(root)) return null;
   const withoutRoot = domain.slice(0, -(root.length + 1));
@@ -77,8 +117,9 @@ async function resolveDomain(domain) {
     const project = await redisclient.hgetall(`subdomain:${subdomain}`);
     if (project?.port) {
       const resolved = {
-        target:    `http://${subdomain}:${project.port}`,
+        target: `http://${subdomain}:${project.port}`,
         projectId: project.projectId || null,
+        plan: project.plan || null
       };
       setCache(domain, resolved);
       return resolved;
@@ -99,8 +140,8 @@ function trackRequest(projectId) {
 
 const flushQueue = new Queue("request-count-flush", {
   connection: {
-    host:     "redis",
-    port:     6379,
+    host: "redis",
+    port: 6379,
   },
 });
 
@@ -133,6 +174,15 @@ app.use(async (req, res) => {
 
     const resolved = await resolveDomain(host);
     if (!resolved) return res.status(404).send("Domain not configured");
+
+    const plan = resolved.plan || "free";
+    const limiter = limiters[plan];
+
+    // ye daily ke liye hai
+    await limiter.consume(resolved.projectId);
+
+    // Burst quota agar eak daam se direct aagya to
+    await burstLimiters[plan].consume(resolved.projectId);
 
     trackRequest(resolved.projectId);
 
@@ -191,7 +241,7 @@ async function shutdown() {
 }
 
 process.on("SIGTERM", shutdown);
-process.on("SIGINT",  shutdown);
+process.on("SIGINT", shutdown);
 
 server.listen(8080, () => {
   console.log("Production Router running on port 8080");
