@@ -175,6 +175,12 @@ app.use(async (req, res) => {
     const resolved = await resolveDomain(host);
     if (!resolved) return res.status(404).send("Domain not configured");
 
+    
+    if (!resolved.projectId) {
+      trackRequest(resolved.projectId);
+      return httpProxyServer.web(req, res, { target: resolved.target });
+    }
+
     const plan = resolved.plan || "free";
     const limiter = limiters[plan];
 
@@ -188,6 +194,10 @@ app.use(async (req, res) => {
 
     httpProxyServer.web(req, res, { target: resolved.target });
   } catch (err) {
+    if (err.msBeforeNext) {
+      res.set("Retry-After", String(Math.ceil(err.msBeforeNext / 1000)));
+      return res.status(429).send("Rate limit exceeded, try again later");
+    }
     console.error("Router error:", err);
     res.status(500).send("Internal server error");
   }
