@@ -76,13 +76,13 @@ const burstLimiters = {
   free: new RateLimiterRedis({
     storeClient: redisclient,
     keyPrefix: "rl_free_burst",
-    points: 50,           // max 50 requests
-    duration: 60          // per 60 seconds
+    points: 150,           
+    duration: 60          
   }),
   pro: new RateLimiterRedis({
     storeClient: redisclient,
     keyPrefix: "rl_pro_burst",
-    points: 500,          // pro can burst higher
+    points: 500,         
     duration: 60
   })
 };
