@@ -129,7 +129,7 @@ async function resolveDomain(domain) {
   const custom = await redisclient.hgetall(`customdomain:${domain}`);
   if (custom?.port) {
     const resolved = {
-      target: `http://${subdomain}:${project.port}`,
+      target: `http://${subdomain}:${custom.port}`,
       projectId: custom.projectId || null,
       plan: custom.plan || null
     };
