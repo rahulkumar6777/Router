@@ -76,13 +76,13 @@ const burstLimiters = {
   free: new RateLimiterRedis({
     storeClient: redisclient,
     keyPrefix: "rl_free_burst",
-    points: 150,           
-    duration: 60          
+    points: 150,
+    duration: 60
   }),
   pro: new RateLimiterRedis({
     storeClient: redisclient,
     keyPrefix: "rl_pro_burst",
-    points: 500,         
+    points: 500,
     duration: 60
   })
 };
@@ -124,6 +124,17 @@ async function resolveDomain(domain) {
       setCache(domain, resolved);
       return resolved;
     }
+  }
+
+  const custom = await redisclient.hgetall(`customdomain:${domain}`);
+  if (custom?.port) {
+    const resolved = {
+      target: `http://${subdomain}:${project.port}`,
+      projectId: custom.projectId || null,
+      plan: custom.plan || null
+    };
+    setCache(domain, resolved);
+    return resolved;
   }
 
   return null;
@@ -175,7 +186,7 @@ app.use(async (req, res) => {
     const resolved = await resolveDomain(host);
     if (!resolved) return res.status(404).send("Domain not configured");
 
-    
+
     if (!resolved.projectId) {
       return httpProxyServer.web(req, res, { target: resolved.target });
     }
