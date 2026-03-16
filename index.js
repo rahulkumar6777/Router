@@ -55,6 +55,7 @@ const staticMap = {
   "api-devload.cloudcoderhub.in": "http://apidevload:6700",
   "dashboard.deployhub.cloud": "http://appdeployhub:80",
   "api.deployhub.cloud": "http://apideployhub:5000",
+  "uptime.deployhub.cloud": "http://uptime-kuma:3001"
 };
 
 const limiters = {
