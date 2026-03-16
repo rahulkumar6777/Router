@@ -16,6 +16,13 @@ const server = http.createServer(app);
 app.set("trust proxy", true);
 app.use(compression());
 
+app.get("/health", (req, res) => {
+  res.status(200).json({
+    status: "ok",
+    service: "masterrouter",
+    uptime: process.uptime()
+  });
+});
 
 const httpAgent = new http.Agent({ keepAlive: true, maxSockets: 1000 });
 
