@@ -63,7 +63,7 @@ const staticMap = {
   "dashboard.deployhub.cloud": "http://appdeployhub:80",
   "api.deployhub.cloud": "http://apideployhub:5000",
   "uptime.deployhub.cloud": "http://uptime-kuma:3001",
-  'vscode.deployhub.cloud': "http://visual-studio-code-server-qpzh:8443"
+  'vscode.deployhub.cloud': "http://visual-studio-code-server-qpzh-code-server-1:8443"
 };
 
 const limiters = {
