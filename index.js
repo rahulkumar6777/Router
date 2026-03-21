@@ -18,9 +18,7 @@ app.use(compression());
 
 app.get("/health", (req, res) => {
   res.status(200).json({
-    status: "ok",
-    service: "masterrouter",
-    uptime: process.uptime()
+    status: "ok"
   });
 });
 
@@ -38,7 +36,7 @@ const wsProxyServer = httpProxy.createProxyServer({
 
 
 const domainCache = new Map();
-const CACHE_TTL = 60_000;
+const CACHE_TTL = 30_000;
 
 function setCache(key, value) {
   domainCache.set(key, { value, expires: Date.now() + CACHE_TTL });
